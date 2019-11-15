@@ -1,16 +1,20 @@
 PI_ADDRESS = 192.168.1.132
 
 remote_run: remote
-	ssh pi@$(PI_ADDRESS) 'bno055_live/rpi_bno055_socket'
+	ssh pi@$(PI_ADDRESS) 'bno055_live/sensor_read'
 
 remote:
 	rsync -av -e ssh --exclude='.git/' ./ pi@$(PI_ADDRESS):~/bno055_live
 	ssh pi@$(PI_ADDRESS) 'cd bno055_live; make all'
 
-all: rpi_bno055_socket.o
+all: rpi_bno055_socket.o bno055.o
+	gcc -Wall bno055.o rpi_bno055_socket.o -o sensor_read
  
-rpi_bno055_socket.o:
-	g++ rpi_bno055_socket.cpp -o rpi_bno055_socket
+rpi_bno055_socket.o: rpi_bno055_socket.c lib/BNO055_driver/bno055.h
+	gcc -c rpi_bno055_socket.c
+
+bno055.o: lib/BNO055_driver/bno055.c lib/BNO055_driver/bno055.h
+	gcc -c lib/BNO055_driver/bno055.c
 
 clean:
 	rm -rf *.o
