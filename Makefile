@@ -4,7 +4,7 @@ remote_run: remote
 	ssh pi@$(PI_ADDRESS) 'bno055_live/sensor_read'
 
 remote:
-	rsync -av -e ssh --exclude='.git/' ./ pi@$(PI_ADDRESS):~/bno055_live
+	rsync -av -e ssh --exclude='.git/' --exclude='*/node_modules/' --exclude='client/dist/' ./ pi@$(PI_ADDRESS):~/bno055_live
 	ssh pi@$(PI_ADDRESS) 'cd bno055_live; make all'
 
 all: rpi_bno055_socket.o bno055.o

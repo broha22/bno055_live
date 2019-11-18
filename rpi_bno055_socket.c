@@ -6,6 +6,7 @@
  * @Copyright:  (c) Your Company 2019
  */
 #include <stdlib.h>
+#include <string.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <fcntl.h>
@@ -16,6 +17,7 @@
 #define	I2C_BUFFER_LEN 9
 #define I2C0 5
 #define	BNO055_I2C_BUS_WRITE_ARRAY_INDEX	((u8)1)
+#define FUNCTION_ARRAY_SIZE 6
 int file_i2c;
 struct bno055_t bno055;
 
@@ -28,11 +30,6 @@ s8 BNO055_I2C_bus_write(u8 dev_addr, u8 reg_addr, u8 *reg_data, u8 cnt) {
 		array[stringpos + BNO055_I2C_BUS_WRITE_ARRAY_INDEX] =
 			*(reg_data + stringpos);
 	}
-  printf("W%x: ", reg_addr);
-  for (int i = 1; i <= cnt; i++) {
-    printf("%x ", array[i]);
-  }
-  printf("\n");
 
   if (write(file_i2c, array, cnt + 1) != cnt + 1) {
 		printf("Failed to write to the i2c bus.\n");
@@ -53,11 +50,6 @@ s8 BNO055_I2C_bus_read(u8 dev_addr, u8 reg_addr, u8 *reg_data, u8 cnt) {
   if (read(file_i2c, array, cnt) != cnt) {
 		printf("Failed to read from the i2c bus.\n");
 	}
-  printf("R%x: ", reg_addr);
-  for (int i = 0; i < cnt; i++)
-    printf("%x ", array[i]);
-  printf("\n");
-
   for (stringpos = BNO055_INIT_VALUE; stringpos < cnt; stringpos++) {
 		*(reg_data + stringpos) = array[stringpos];
   }
@@ -89,10 +81,25 @@ s8 I2C_routine(struct bno055_t *bno055) {
 }
 
 int main (int argc, char *argv[]) {
-  struct bno055_t bno055;
-  struct bno055_accel_t accel_xyz;
-  struct bno055_gyro_t gyro_xyz;
-  struct bno055_mag_t mag_xyz;
+  // struct bno055_t bno055;
+
+  s8 (*functionPointers[FUNCTION_ARRAY_SIZE])(s16 *s_val) = {
+    bno055_read_gyro_x,
+    bno055_read_gyro_y,
+    bno055_read_gyro_z,
+    bno055_read_accel_x,
+    bno055_read_accel_y,
+    bno055_read_accel_z
+  };
+
+  char *functionNames[FUNCTION_ARRAY_SIZE] = {
+    "GYRO_X\n",
+    "GYRO_Y\n",
+    "GYRO_Z\n",
+    "ACC_X\n",
+    "ACC_Y\n",
+    "ACC_Z\n"
+  };
 
   //Begin initialization
   s32 comres = BNO055_ERROR;
@@ -100,15 +107,26 @@ int main (int argc, char *argv[]) {
   I2C_routine(&bno055);
 
   comres = bno055_init(&bno055);
-
-  s16 gyro_x, gyro_y, gyro_z = 0;
-  while (1) {
-    comres += bno055_read_gyro_x(&gyro_x);
-    comres += bno055_read_gyro_y(&gyro_y);
-    comres += bno055_read_gyro_z(&gyro_z);
-
-    printf("%f %f %f\n", (double)gyro_x / 16.0, (double)gyro_y / 16.0, (double)gyro_z / 16.0);
-    sleep(1);
+  comres += bno055_set_power_mode(BNO055_POWER_MODE_NORMAL);
+  comres += bno055_set_operation_mode(BNO055_OPERATION_MODE_AMG);
+  s16 sensor_value = 10;
+  char buffer[128];
+  int loop = 1;
+  printf("hellp\n");
+  while (loop) {
+    fgets(buffer, 128, stdin);
+    for (int i = 0; i < FUNCTION_ARRAY_SIZE; i++) {
+      if (!strcmp(buffer, "q\n")) {
+        loop = 0;
+        break;
+      } else if (!strcmp(buffer, functionNames[i])) {
+        char name[128];
+        strcpy(name, functionNames[i]);
+        name[strlen(name) - 1] = 0;
+        comres += functionPointers[i](&sensor_value);
+        printf("%s:%d\n", name, sensor_value);
+      }
+    }
   }
 
   return comres;
