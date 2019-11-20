@@ -1,64 +1,50 @@
 const { spawn } = require('child_process')
-const Readable = require('stream').Readable
+const express = require('express')
+const app = express()
+const server = app.listen(3000)
+const io = require('socket.io').listen(server)
+const cors = require('cors')
 
-const server = require('http').createServer()
-const io = require('socket.io')(server)
+app.use(cors({origin: true, credentials: true}))
+
 io.on('connection', client => {
+  console.log('connect')
   client.on('event', data => { /* … */ })
   client.on('disconnect', () => { /* … */ })
 })
 
 const sensor_read = spawn("./../sensor_read")
 const sensor_vals = {
-  'GYR_X': 0,
-  'GYR_Y': 0,
-  'GYR_Z': 0,
+  'GYRO_X': 0,
+  'GYRO_Y': 0,
+  'GYRO_Z': 0,
   'ACC_X': 0,
   'ACC_Y': 0,
   'ACC_Z': 0
 }
-const readings = ['GYR_X\n', 'GYR_Y\n', 'GYR_Z\n', 'ACC_X\n', 'ACC_Y\n', 'ACC_Z\n', '\n']
+const readings = ['GYRO_X\r\n', 'GYRO_Y\r\n', 'GYRO_Z\r\n', 'ACC_X\r\n', 'ACC_Y\r\n', 'ACC_Z\r\n']
 
+
+app.use('/', express.static('../client/dist/index.html'))
+
+let chunk = ""
+let removal = ""
 sensor_read.stdout.on('data', data => {
-  // const split_data = data.split(":")
-  // sensor_vals[split_data[0]] = split_data[1]
-  console.log(data.toString())
+  chunk += data.toString()
+  let elms = chunk.match(/[^\n]+(?:\r?\n|$)/g)
+  for (let el of elms) {
+    if (el.indexOf('\n') >= 0) {
+      removal += el
+      let split = el.split(':')
+      sensor_vals[split[0]] = parseInt(split[1].replace('\n', ''))
+    }
+  }
+  chunk.replace(removal, '')
+  removal = ''
 })
 
-for (let reading of readings) {
-  const buffer = new Readable()
-  buffer.push(reading)
-  buffer.push(null)
-  buffer.pipe(sensor_read.stdin)
-} 
-
-io.emit('broadcast', /* */)
-server.listen(3000)
-
-function exitHandler(options, exitCode) {
-    if (options.cleanup) console.log('clean')
-    if (exitCode || exitCode === 0) console.log(exitCode)
-
-    if (options.exit) {
-      const buffer = new Readable()
-      buffer.push("q\n")
-      buffer.push(null)
-      buffer.pipe(sensor_read.stdin)
-      sensor_read.on('exit', function() {
-        process.exit()
-      })
-    }
+function readValues() {
+  io.emit('broadcast', JSON.stringify(sensor_vals))
+  setTimeout(readValues, 500)
 }
-
-//do something when app is closing
-process.on('exit', exitHandler.bind(null,{cleanup:true}))
-
-//catches ctrl+c event
-process.on('SIGINT', exitHandler.bind(null, {exit:true}))
-
-// catches "kill pid" (for example: nodemon restart)
-process.on('SIGUSR1', exitHandler.bind(null, {exit:true}))
-process.on('SIGUSR2', exitHandler.bind(null, {exit:true}))
-
-//catches uncaught exceptions
-process.on('uncaughtException', exitHandler.bind(null, {exit:true}))
+readValues()

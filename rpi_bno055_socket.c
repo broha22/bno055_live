@@ -111,23 +111,37 @@ int main (int argc, char *argv[]) {
   comres += bno055_set_operation_mode(BNO055_OPERATION_MODE_AMG);
   s16 sensor_value = 10;
   char buffer[128];
-  int loop = 1;
-  printf("hellp\n");
-  while (loop) {
-    fgets(buffer, 128, stdin);
-    for (int i = 0; i < FUNCTION_ARRAY_SIZE; i++) {
-      if (!strcmp(buffer, "q\n")) {
-        loop = 0;
-        break;
-      } else if (!strcmp(buffer, functionNames[i])) {
-        char name[128];
-        strcpy(name, functionNames[i]);
-        name[strlen(name) - 1] = 0;
-        comres += functionPointers[i](&sensor_value);
-        printf("%s:%d\n", name, sensor_value);
-      }
-    }
+  // size_t buffer_size = 128;
+  // buffer = (char *)malloc(buffer_size * sizeof(char));
+  int i = 0;
+  while (1) {
+    // if (fgets(buffer, 128, stdin) == NULL) {
+    //   buffer[0] = '\0';
+    //   freopen("/dev/stdin","r",stdin);
+    // }
+    char name[128];
+    strcpy(name, functionNames[i]);
+    name[strlen(name) - 1] = 0;
+    comres += functionPointers[i](&sensor_value);
+    printf("%s:%d\n", name, sensor_value);
+    i = (i + 1) % FUNCTION_ARRAY_SIZE;
+    // if (fgets(buffer, 128, stdin) != NULL) {
+    //   printf("%s\n", buffer);
+    //   for (int i = 0; i < FUNCTION_ARRAY_SIZE; i++) {
+    //     if (!strcmp(buffer, "q\n")) {
+    //       loop = 0;
+    //       break;
+    //     } else if (!strcmp(buffer, functionNames[i])) {
+    //       char name[128];
+    //       strcpy(name, functionNames[i]);
+    //       name[strlen(name) - 1] = 0;
+    //       comres += functionPointers[i](&sensor_value);
+    //       printf("%s:%d\n", name, sensor_value);
+    //     }
+    //   }
+    // }
+    sleep(0.1);
   }
-
+  // free(buffer);
   return comres;
 }
