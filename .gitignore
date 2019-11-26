@@ -2,7 +2,7 @@
 rpi_bno055_socket
 .DS_Store
 node_modules
-/dist
+*/dist
 
 # local env files
 .env.local

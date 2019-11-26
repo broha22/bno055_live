@@ -11,8 +11,14 @@
         <div class='button open_data'>
           Open Data
         </div>
-        <div class='button clear_data'>
+        <div class='button clear_data' @click='clearData()'>
           Clear Data
+        </div>
+        <div class='button upload_data' @click='uploadData()'>
+          Upload Data
+        </div>
+        <div class='button view_data' @click='clearData()'>
+          View Data
         </div>
       </div>
     </div>
@@ -39,6 +45,7 @@
 <script>
 import io from 'socket.io-client'
 import LineChart from '@/components/line-chart.js'
+import axios from 'axios'
 export default {
   name: 'app',
   components: {
@@ -46,6 +53,7 @@ export default {
   },
   data () {
     return {
+      push_updates: true,
       ACC_X: 0,
       ACC_Y: 0,
       ACC_Z: 0,
@@ -97,18 +105,42 @@ export default {
   created() {
     let socket = io('http://192.168.1.132:3000')
     socket.on('broadcast', data => {
-      let parsed = JSON.parse(data)
-      this.ACC_X = parsed.ACC_X
-      this.ACC_Y = parsed.ACC_Y
-      this.ACC_Z = parsed.ACC_Z
-      this.GYRO_X = parsed.GYRO_X
-      this.GYRO_Y = parsed.GYRO_Y
-      this.GYRO_Z = parsed.GYRO_Z
-      for (let set of this.datacollection.datasets) {
-        set.data.push({ x: (new Date()), y: this[set.label.replace(' ', '_')] })
-        this.$refs.chart.update()
+      if (this.push_updates) {
+        let parsed = JSON.parse(data)
+        this.ACC_X = parsed.ACC_X
+        this.ACC_Y = parsed.ACC_Y
+        this.ACC_Z = parsed.ACC_Z
+        this.GYRO_X = parsed.GYRO_X
+        this.GYRO_Y = parsed.GYRO_Y
+        this.GYRO_Z = parsed.GYRO_Z
+        for (let set of this.datacollection.datasets) {
+          set.data.push({ x: (new Date()), y: this[set.label.replace(' ', '_')] })
+          this.$refs.chart.update()
+        }
       }
     })
+  },
+  methods: {
+    clearData() {
+      for (let set of this.datacollection.datasets) {
+        set.data = []
+      }
+      this.push_updates = true
+    },
+    async uploadData() {
+      let data = {}
+      for (let set of this.datacollection.datasets) {
+        data[set.label] = set.data
+      }
+      await axios('http://192.168.1.132:3000/upload', { method: 'post', data: data, timeout: 72000 })
+    },
+    async downloadData(id) {
+      this.push_updates = false
+      let data =  await axios('http://192.168.1.132:3000/download?id='+id, { method: 'get' })
+      for (let set of this.datacollection.datasets) {
+        data[set.label] = set.data
+      }
+    }
   }
 }
 </script>
@@ -183,10 +215,11 @@ body {
   padding-right: 3px;
   text-align: right;
   display: inline-block;
-  width: 40%;
+  width: 80%;
 }
 
 .button {
+  cursor: pointer;
   position: relative;
   right: 10px;
   display: inline-block;
