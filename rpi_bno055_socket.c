@@ -140,7 +140,7 @@ int main (int argc, char *argv[]) {
     //     }
     //   }
     // }
-    sleep(0.1);
+    sleep(0.5);
   }
   // free(buffer);
   return comres;

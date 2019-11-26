@@ -111,12 +111,6 @@ sensor_read.stdout.on('data', data => {
   removal = ''
 })
 
-function readValues() {
-  // io.emit('broadcast', JSON.stringify(sensor_vals))
-  setTimeout(readValues, 1000)
-}
-readValues()
-
 io.on('connection', client => {
   function readValues() {
     client.emit('data', JSON.stringify(sensor_vals))
