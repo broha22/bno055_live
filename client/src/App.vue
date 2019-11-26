@@ -5,20 +5,22 @@
         BNO055 Sensor
       </div>
       <div class='buttons'>
-        <div class='button save_data'>
-          Save Data
-        </div>
-        <div class='button open_data'>
+        <div class='button open_data' @click='showRuns()'>
           Open Data
         </div>
         <div class='button clear_data' @click='clearData()'>
           Clear Data
         </div>
-        <div class='button upload_data' @click='uploadData()'>
+        <div class='button save_data' @click='uploadData()'>
           Upload Data
         </div>
-        <div class='button view_data' @click='clearData()'>
-          View Data
+      </div>
+    </div>
+    <div class='data_container' ref='run_viewer'>
+      <div class='close' @click='closerunViewer()'>X</div>
+      <div class='run_container'>
+        <div v-for='run in runs' :key='run.id' @click='downloadData(run.run_id)' class='run'>
+          {{ run.run_id }} : {{ run.time }}
         </div>
       </div>
     </div>
@@ -53,6 +55,8 @@ export default {
   },
   data () {
     return {
+      socket: null,
+      runs: [],
       push_updates: true,
       ACC_X: 0,
       ACC_Y: 0,
@@ -103,9 +107,10 @@ export default {
     }
   },
   created() {
-    let socket = io('http://192.168.1.132:3000')
-    socket.on('broadcast', data => {
+    this.socket = io('http://192.168.4.1:3000')
+    this.socket.on('data', data => {
       if (this.push_updates) {
+        this.push_updates = false
         let parsed = JSON.parse(data)
         this.ACC_X = parsed.ACC_X
         this.ACC_Y = parsed.ACC_Y
@@ -117,29 +122,41 @@ export default {
           set.data.push({ x: (new Date()), y: this[set.label.replace(' ', '_')] })
           this.$refs.chart.update()
         }
+        setTimeout(() => { this.push_updates = true }, 50)
       }
     })
   },
   methods: {
+    closerunViewer() {
+      this.socket.connect()
+      this.$refs.run_viewer.style.display = 'none'
+    },
     clearData() {
       for (let set of this.datacollection.datasets) {
         set.data = []
       }
-      this.push_updates = true
+      this.socket.connect()
     },
     async uploadData() {
       let data = {}
       for (let set of this.datacollection.datasets) {
         data[set.label] = set.data
       }
-      await axios('http://192.168.1.132:3000/upload', { method: 'post', data: data, timeout: 72000 })
+      await axios('http://192.168.4.1:3000/upload', { method: 'post', data: data, timeout: 72000 })
     },
     async downloadData(id) {
-      this.push_updates = false
-      let data =  await axios('http://192.168.1.132:3000/download?id='+id, { method: 'get' })
+      let data =  (await axios('http://192.168.4.1:3000/download?id='+id, { method: 'get' })).data
       for (let set of this.datacollection.datasets) {
-        data[set.label] = set.data
+        set.data = data[set.label]
       }
+      this.$refs.run_viewer.style.display = 'none'
+      this.$refs.chart.update()
+    },
+    async showRuns() {
+      this.socket.disconnect()
+      let data = (await axios('http://192.168.4.1:3000/runs', { method: 'get' })).data
+      this.runs = data
+      this.$refs.run_viewer.style.display = 'block'
     }
   }
 }
@@ -239,5 +256,53 @@ body {
 }
 .clear_data {
   background-color: #fa4a4a;
+}
+.data_container {
+  position: absolute;
+  top: 200px;
+  width: 300px;
+  left: calc(50vw  - 150px);
+  background-color: #fff;
+  display: none;
+  text-align: center;
+  z-index: 10;
+  border-radius: 10px 10px 0px 0px;
+  border: solid 2px black;
+}
+.close {
+  cursor: pointer;
+  position: absolute;
+  top: 0;
+  right: 0;
+  text-align: right;
+  padding: 10px;
+  width: calc(100% - 20px);
+  border-radius: 4px 4px 0px 0px;
+  height: 20px;
+  background-color: black;
+  color: white;
+  font-family: Impact, Haettenschweiler, 'Arial Narrow Bold', sans-serif;
+  font-size: 20px;
+}
+
+.run_container {
+  position: relative;
+  left: -2px;
+  top: 40px;
+  width: 100%;
+  border: solid 2px black;
+  border-radius: 0px 0px 10px 10px;
+  overflow: hidden;
+}
+
+.run {
+  cursor: pointer;
+  width: calc(100% - 20px);
+  padding: 10px;
+  overflow: hidden;
+  background-color: #fff;
+}
+.run:nth-child(even) {
+  background-color: #f0f0f0;
 }
 </style>

@@ -30,12 +30,6 @@ function queryDB(sql, args) {
 
 app.use(cors({origin: true, credentials: true}))
 
-io.on('connection', client => {
-  console.log('connect')
-  client.on('event', data => { /* … */ })
-  client.on('disconnect', () => { /* … */ })
-})
-
 const sensor_read = spawn("./../sensor_read")
 const sensor_vals = {
   'GYRO_X': 0,
@@ -118,7 +112,17 @@ sensor_read.stdout.on('data', data => {
 })
 
 function readValues() {
-  io.emit('broadcast', JSON.stringify(sensor_vals))
+  // io.emit('broadcast', JSON.stringify(sensor_vals))
   setTimeout(readValues, 1000)
 }
 readValues()
+
+io.on('connection', client => {
+  function readValues() {
+    client.emit('data', JSON.stringify(sensor_vals))
+    if (client.connected) setTimeout(readValues, 1000)
+  }
+  readValues()
+  client.on('event', data => { /* … */ })
+  client.on('disconnect', () => { /* … */ })
+})
